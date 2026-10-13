@@ -25,7 +25,7 @@ interface Product {
 }
 
 interface CartItem extends Product {
-  quantity: number; // Supports fractional numbers like 0.5, 1.5
+  quantity: number; // Supports fractional numbers like 0.5, 1.5, etc.
 }
 
 export default function App() {
@@ -33,19 +33,19 @@ export default function App() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Form states for login
+  // Login form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // Tab & POS states
+  // App UI & POS states
   const [activeTab, setActiveTab] = useState<'pos' | 'inventory'>('pos');
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [checkoutSuccess, setCheckoutSuccess] = useState('');
 
-  // Listen for user auth state changes
+  // 1. Listen for user authentication state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
@@ -71,7 +71,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Subscribe to real-time products collection when logged in
+  // 2. Subscribe to real-time products collection when logged in
   useEffect(() => {
     if (!user) return;
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
@@ -174,7 +174,7 @@ export default function App() {
     );
   }
 
-  // Login Screen
+  // 1. LOGIN SCREEN (With High-Contrast Input Colors)
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -192,32 +192,32 @@ export default function App() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Email Address</label>
               <input 
                 type="email" 
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@saintagu.com"
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg text-slate-900 bg-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none font-medium"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Password</label>
               <input 
                 type="password" 
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg text-slate-900 bg-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none font-medium"
               />
             </div>
 
             <button 
               type="submit" 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition shadow-md"
             >
               Sign In
             </button>
@@ -227,11 +227,11 @@ export default function App() {
     );
   }
 
-  // Dashboard Screen
+  // 2. MAIN DASHBOARD & POS TERMINAL SCREEN
   return (
     <div className="min-h-screen bg-slate-100">
-      {/* Header Bar */}
-      <header className="bg-white border-b px-6 py-4 flex flex-col md:flex-row justify-between items-center shadow-sm gap-4">
+      {/* Navigation Header */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row justify-between items-center shadow-sm gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Saint Agu Premium Beer Wholesale</h1>
           <p className="text-xs text-slate-500">
@@ -239,8 +239,8 @@ export default function App() {
           </p>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex bg-slate-100 p-1 rounded-lg border">
+        {/* Tab Selection */}
+        <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
           <button
             onClick={() => setActiveTab('pos')}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
@@ -267,7 +267,7 @@ export default function App() {
         </button>
       </header>
 
-      {/* Main Content Area */}
+      {/* Main Container */}
       <main className="p-6 max-w-7xl mx-auto">
         {checkoutSuccess && (
           <div className="mb-4 bg-emerald-100 text-emerald-800 border border-emerald-300 p-4 rounded-xl text-center font-semibold">
@@ -277,7 +277,7 @@ export default function App() {
 
         {activeTab === 'pos' ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Products Selection List (Left Column) */}
+            {/* Products Selection List */}
             <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-bold text-slate-800 mb-4">Beverage Catalog</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -309,7 +309,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* POS Checkout Cart (Right Column) */}
+            {/* POS Cart & Checkout */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
               <div>
                 <h2 className="text-lg font-bold text-slate-800 mb-4">Current Order / Cart</h2>
@@ -335,41 +335,39 @@ export default function App() {
                           </button>
                         </div>
 
-                        {/* Fractional Quantity Input & Quick Selectors */}
+                        {/* Fractional Quantity Input & Quick Buttons */}
                         <div className="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-lg">
                           <div className="flex items-center gap-1">
                             <label className="text-xs font-medium text-slate-500">Qty:</label>
                             <input
                               type="number"
-                              step="any"       /* Enables typing 0.5, 1.5, 0.25 */
+                              step="any"       /* Allows 0.5, 1.5, 0.25, etc. */
                               min="0.01"
                               value={item.quantity === 0 ? '' : item.quantity}
                               onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                               placeholder="0.5"
-                              className="w-20 px-2 py-1 border rounded text-center text-sm bg-white font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                              className="w-20 px-2 py-1 border border-slate-300 rounded text-center text-sm bg-white font-bold text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none"
                             />
                           </div>
 
-                          {/* Quick Fractional Buttons */}
                           <div className="flex gap-1">
                             <button
                               type="button"
                               onClick={() => handleQuantityChange(item.id, '0.5')}
-                              className="px-2 py-1 text-xs font-semibold bg-slate-200 hover:bg-blue-600 hover:text-white rounded"
+                              className="px-2 py-1 text-xs font-semibold bg-slate-200 hover:bg-blue-600 hover:text-white rounded text-slate-800"
                             >
                               1/2
                             </button>
                             <button
                               type="button"
                               onClick={() => handleQuantityChange(item.id, '1')}
-                              className="px-2 py-1 text-xs font-semibold bg-slate-200 hover:bg-blue-600 hover:text-white rounded"
+                              className="px-2 py-1 text-xs font-semibold bg-slate-200 hover:bg-blue-600 hover:text-white rounded text-slate-800"
                             >
                               1
                             </button>
                           </div>
 
-                          {/* Line Item Total */}
-                          <span className="text-sm font-bold text-slate-800">
+                          <span className="text-sm font-bold text-slate-900">
                             ₦{(item.sellingPrice * item.quantity || 0).toLocaleString()}
                           </span>
                         </div>
@@ -379,16 +377,16 @@ export default function App() {
                 )}
               </div>
 
-              {/* Order Summary & Checkout Form */}
+              {/* Order Summary & Customer Name */}
               <div className="border-t border-slate-200 pt-4 mt-4">
                 <div className="mb-3">
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Customer / Buyer Name</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Customer / Buyer Name</label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Walk-in Customer"
-                    className="w-full px-3 py-1.5 border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-900 bg-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                   />
                 </div>
 
