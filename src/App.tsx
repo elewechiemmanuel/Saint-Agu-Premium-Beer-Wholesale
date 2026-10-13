@@ -6,7 +6,27 @@ import {
   onAuthStateChanged, 
   User 
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
+
+interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  brewery: string;
+  stock: number;
+  sellingPrice: number;
+}
+
+interface CartItem extends Product {
+  quantity: number; // Supports fractional numbers like 0.5, 1.5
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -18,12 +38,18 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // 1. Listen for user auth state changes
+  // Tab & POS states
+  const [activeTab, setActiveTab] = useState<'pos' | 'inventory'>('pos');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [customerName, setCustomerName] = useState('');
+  const [checkoutSuccess, setCheckoutSuccess] = useState('');
+
+  // Listen for user auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        // Fetch user role from Firestore
         try {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
@@ -45,6 +71,20 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Subscribe to real-time products collection when logged in
+  useEffect(() => {
+    if (!user) return;
+    const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
+      const items: Product[] = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data()
+      })) as Product[];
+      setProducts(items);
+    });
+
+    return () => unsubProducts();
+  }, [user]);
+
   // Handle Login submission
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,15 +101,80 @@ export default function App() {
     signOut(auth);
   };
 
+  // POS Cart Functions
+  const addToCart = (product: Product) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === product.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+  };
+
+  // Allow fractional quantities (0.5, 1.5, 0.25, etc.)
+  const handleQuantityChange = (id: string, value: string) => {
+    const parsedQty = parseFloat(value);
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, quantity: isNaN(parsedQty) ? 0 : parsedQty }
+          : item
+      )
+    );
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const calculateTotal = () => {
+    return cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0);
+  };
+
+  // Submit POS Checkout to Firestore
+  const handleCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cart.length === 0) return;
+
+    try {
+      await addDoc(collection(db, 'sales'), {
+        cashierEmail: user?.email,
+        customerName: customerName || 'Walk-in Customer',
+        items: cart.map((i) => ({
+          id: i.id,
+          name: i.name,
+          quantity: i.quantity,
+          unitPrice: i.sellingPrice,
+          totalPrice: i.sellingPrice * i.quantity
+        })),
+        grandTotal: calculateTotal(),
+        createdAt: serverTimestamp()
+      });
+
+      setCheckoutSuccess('Transaction completed successfully!');
+      setCart([]);
+      setCustomerName('');
+      setTimeout(() => setCheckoutSuccess(''), 4000);
+    } catch (err) {
+      console.error('Error logging transaction:', err);
+      alert('Failed to complete transaction. Please check connection/permissions.');
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <p className="text-gray-600 text-lg font-medium">Loading Saint Agu System...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+        <p className="text-lg font-medium">Loading Saint Agu Wholesale System...</p>
       </div>
     );
   }
 
-  // 2. If user is NOT logged in, show the Login Form
+  // Login Screen
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -122,15 +227,38 @@ export default function App() {
     );
   }
 
-  // 3. If logged in, show the main dashboard
+  // Dashboard Screen
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header bar */}
-      <header className="bg-white border-b px-6 py-4 flex justify-between items-center shadow-sm">
+    <div className="min-h-screen bg-slate-100">
+      {/* Header Bar */}
+      <header className="bg-white border-b px-6 py-4 flex flex-col md:flex-row justify-between items-center shadow-sm gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Saint Agu Wholesale</h1>
-          <p className="text-xs text-slate-500">Role: <span className="font-semibold uppercase">{userRole}</span> ({user.email})</p>
+          <h1 className="text-xl font-bold text-slate-800">Saint Agu Premium Beer Wholesale</h1>
+          <p className="text-xs text-slate-500">
+            Role: <span className="font-semibold uppercase text-blue-600">{userRole}</span> ({user.email})
+          </p>
         </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex bg-slate-100 p-1 rounded-lg border">
+          <button
+            onClick={() => setActiveTab('pos')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
+              activeTab === 'pos' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            POS / Sale
+          </button>
+          <button
+            onClick={() => setActiveTab('inventory')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
+              activeTab === 'inventory' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Products & Stock
+          </button>
+        </div>
+
         <button 
           onClick={handleLogout}
           className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition"
@@ -139,10 +267,180 @@ export default function App() {
         </button>
       </header>
 
-      {/* Main content area */}
-      <main className="p-6">
-        <h2 className="text-lg font-bold text-slate-800 mb-4">Beverage Inventory & Pricing</h2>
-        {/* Your existing inventory table / POS views go here */}
+      {/* Main Content Area */}
+      <main className="p-6 max-w-7xl mx-auto">
+        {checkoutSuccess && (
+          <div className="mb-4 bg-emerald-100 text-emerald-800 border border-emerald-300 p-4 rounded-xl text-center font-semibold">
+            {checkoutSuccess}
+          </div>
+        )}
+
+        {activeTab === 'pos' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Products Selection List (Left Column) */}
+            <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-lg font-bold text-slate-800 mb-4">Beverage Catalog</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {products.length === 0 ? (
+                  <p className="text-sm text-slate-500 col-span-2">No products loaded yet. Add items in Firestore or Products tab.</p>
+                ) : (
+                  products.map((product) => (
+                    <div 
+                      key={product.id}
+                      className="border border-slate-200 rounded-lg p-4 flex flex-col justify-between hover:border-blue-500 transition"
+                    >
+                      <div>
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{product.sku}</span>
+                        <h3 className="font-bold text-slate-800 mt-1">{product.name}</h3>
+                        <p className="text-xs text-slate-500">{product.brewery}</p>
+                        <p className="text-sm font-bold text-slate-900 mt-2">
+                          ₦{(product.sellingPrice || 0).toLocaleString()} <span className="text-xs font-normal text-slate-400">/ Crate</span>
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => addToCart(product)}
+                        className="mt-3 w-full bg-slate-900 hover:bg-blue-600 text-white text-xs font-medium py-2 rounded transition"
+                      >
+                        + Add to Sale
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* POS Checkout Cart (Right Column) */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 mb-4">Current Order / Cart</h2>
+
+                {cart.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400 text-sm">
+                    Cart is empty. Click "+ Add to Sale" on any drink.
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+                    {cart.map((item) => (
+                      <div key={item.id} className="border-b border-slate-100 pb-3 flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">{item.name}</p>
+                            <p className="text-xs text-slate-400">₦{item.sellingPrice.toLocaleString()} per unit</p>
+                          </div>
+                          <button
+                            onClick={() => removeFromCart(item.id)}
+                            className="text-red-500 hover:text-red-700 text-xs font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        {/* Fractional Quantity Input & Quick Selectors */}
+                        <div className="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-lg">
+                          <div className="flex items-center gap-1">
+                            <label className="text-xs font-medium text-slate-500">Qty:</label>
+                            <input
+                              type="number"
+                              step="any"       /* Enables typing 0.5, 1.5, 0.25 */
+                              min="0.01"
+                              value={item.quantity === 0 ? '' : item.quantity}
+                              onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                              placeholder="0.5"
+                              className="w-20 px-2 py-1 border rounded text-center text-sm bg-white font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                          </div>
+
+                          {/* Quick Fractional Buttons */}
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleQuantityChange(item.id, '0.5')}
+                              className="px-2 py-1 text-xs font-semibold bg-slate-200 hover:bg-blue-600 hover:text-white rounded"
+                            >
+                              1/2
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuantityChange(item.id, '1')}
+                              className="px-2 py-1 text-xs font-semibold bg-slate-200 hover:bg-blue-600 hover:text-white rounded"
+                            >
+                              1
+                            </button>
+                          </div>
+
+                          {/* Line Item Total */}
+                          <span className="text-sm font-bold text-slate-800">
+                            ₦{(item.sellingPrice * item.quantity || 0).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Order Summary & Checkout Form */}
+              <div className="border-t border-slate-200 pt-4 mt-4">
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Customer / Buyer Name</label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Walk-in Customer"
+                    className="w-full px-3 py-1.5 border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm font-bold text-slate-600">Grand Total:</span>
+                  <span className="text-xl font-extrabold text-emerald-600">
+                    ₦{calculateTotal().toLocaleString()}
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleCheckout}
+                  disabled={cart.length === 0}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-xl transition shadow-md"
+                >
+                  Complete Checkout
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Inventory Table View */
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 className="text-lg font-bold text-slate-800 mb-2">Beverage Inventory & Pricing</h2>
+            <p className="text-xs text-slate-500 mb-4">Stock levels and selling price catalogue.</p>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b bg-slate-50 text-xs text-slate-500 font-semibold uppercase">
+                    <th className="py-3 px-4">SKU</th>
+                    <th className="py-3 px-4">Product Name</th>
+                    <th className="py-3 px-4">Brewery</th>
+                    <th className="py-3 px-4">Stock</th>
+                    <th className="py-3 px-4">Selling Price</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {products.map((prod) => (
+                    <tr key={prod.id} className="hover:bg-slate-50">
+                      <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-600">{prod.sku}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-800">{prod.name}</td>
+                      <td className="py-3 px-4 text-slate-500">{prod.brewery}</td>
+                      <td className="py-3 px-4 font-bold text-slate-700">{prod.stock} Crates</td>
+                      <td className="py-3 px-4 font-bold text-emerald-600">₦{(prod.sellingPrice || 0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
