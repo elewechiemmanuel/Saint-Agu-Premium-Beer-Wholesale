@@ -151,8 +151,9 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Safe product loading: Only admin triggers auto-seed if empty
   useEffect(() => {
-    if (!user) return;
+    if (!user || !userRole) return;
 
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const items: Product[] = snapshot.docs.map((d) => ({
@@ -160,11 +161,13 @@ export default function App() {
         ...d.data()
       })) as Product[];
       
-      if (items.length === 0) {
+      if (items.length === 0 && userRole === 'admin') {
         seedDatabase();
       } else {
         setProducts(items);
       }
+    }, (error) => {
+      console.error("Error fetching products:", error);
     });
 
     const unsubCustomers = onSnapshot(collection(db, 'customers'), (snapshot) => {
@@ -189,7 +192,7 @@ export default function App() {
       unsubCustomers();
       unsubSales();
     };
-  }, [user]);
+  }, [user, userRole]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -238,7 +241,6 @@ export default function App() {
     return cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0);
   };
 
-  // Complete Order & Generate Receipt Card
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
@@ -279,7 +281,6 @@ export default function App() {
     }
   };
 
-  // Print function for 58mm printer
   const print58mmReceipt = () => {
     if (!completedSale) return;
 
@@ -697,7 +698,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Other Tabs (Inventory, Customers, Reports) Remain Full and Functional */}
         {activeTab === 'inventory' && (
           <div className="bg-white p-6 rounded-xl border border-slate-200">
             <h2 className="text-lg font-bold mb-4">Beverage Inventory & Pricing</h2>
@@ -726,12 +726,9 @@ export default function App() {
         )}
       </main>
 
-      {/* SALE COMPLETED RECEIPT MODAL (Matches Image exactly) */}
       {completedSale && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm text-slate-800 font-mono text-xs">
-            
-            {/* Green Check Icon & Header */}
             <div className="text-center mb-4">
               <div className="w-12 h-12 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-2 text-2xl font-bold">
                 ✓
@@ -742,7 +739,6 @@ export default function App() {
 
             <div className="border-t border-slate-800 my-3"></div>
 
-            {/* Store Information */}
             <div className="text-center font-bold text-slate-900 text-xs uppercase mb-1">
               SAINT AGU PREMIUM BEER WHOLESALE
             </div>
@@ -766,7 +762,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Items Table */}
             <table className="w-full text-left my-2 border-collapse text-[11px]">
               <thead>
                 <tr className="border-b border-slate-800 text-slate-900 font-bold">
@@ -788,7 +783,6 @@ export default function App() {
               </tbody>
             </table>
 
-            {/* Totals Section */}
             <div className="space-y-1 border-t border-slate-200 pt-2 my-2 text-[11px]">
               <div className="flex justify-between font-bold text-slate-900">
                 <span>Total:</span>
@@ -810,7 +804,6 @@ export default function App() {
 
             <div className="border-t border-slate-800 mb-5"></div>
 
-            {/* Action Buttons */}
             <div className="flex gap-3 font-sans">
               <button
                 type="button"
@@ -827,7 +820,6 @@ export default function App() {
                 New Sale
               </button>
             </div>
-
           </div>
         </div>
       )}
