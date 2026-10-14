@@ -12,6 +12,8 @@ import {
   collection, 
   onSnapshot, 
   addDoc, 
+  setDoc,
+  writeBatch,
   serverTimestamp 
 } from 'firebase/firestore';
 
@@ -27,6 +29,18 @@ interface Product {
 interface CartItem extends Product {
   quantity: number; // Supports fractional numbers like 0.5, 1.5, etc.
 }
+
+// Initial seed data for Saint Agu Wholesale
+const INITIAL_PRODUCTS = [
+  { id: 'prod-01', sku: 'HNK-01', name: 'Heineken Premium Lager (Crate)', brewery: 'Nigerian Breweries', stock: 150, sellingPrice: 35000 },
+  { id: 'prod-02', sku: 'GLD-02', name: 'Gulder Lager Beer (Crate)', brewery: 'Nigerian Breweries', stock: 120, sellingPrice: 32000 },
+  { id: 'prod-03', sku: 'STR-03', name: 'Star Lager Beer (Crate)', brewery: 'Nigerian Breweries', stock: 200, sellingPrice: 31000 },
+  { id: 'prod-04', sku: 'GNS-04', name: 'Guinness Foreign Extra Stout (Crate)', brewery: 'Guinness Nigeria', stock: 95, sellingPrice: 38000 },
+  { id: 'prod-05', sku: 'LGD-05', name: 'Legend Extra Stout (Crate)', brewery: 'Guinness Nigeria', stock: 80, sellingPrice: 29500 },
+  { id: 'prod-06', sku: 'HRO-06', name: 'Hero Premium Lager (Crate)', brewery: 'International Breweries', stock: 140, sellingPrice: 29000 },
+  { id: 'prod-07', sku: 'TRP-07', name: 'Trophy Extra Special Stout (Crate)', brewery: 'International Breweries', stock: 110, sellingPrice: 29500 },
+  { id: 'prod-08', sku: 'BDW-08', name: 'Budweiser Lager Beer (Crate)', brewery: 'International Breweries', stock: 75, sellingPrice: 36000 }
+];
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -44,6 +58,26 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [checkoutSuccess, setCheckoutSuccess] = useState('');
+  const [seeding, setSeeding] = useState(false);
+
+  // Function to seed products into Firestore
+  const seedDatabase = async () => {
+    try {
+      setSeeding(true);
+      const batch = writeBatch(db);
+      INITIAL_PRODUCTS.forEach((prod) => {
+        const docRef = doc(db, 'products', prod.id);
+        batch.set(docRef, prod, { merge: true });
+      });
+      await batch.commit();
+      setCheckoutSuccess('Catalog seeded successfully with wholesale products!');
+      setTimeout(() => setCheckoutSuccess(''), 4000);
+    } catch (err) {
+      console.error('Error seeding database:', err);
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   // 1. Listen for user authentication state changes
   useEffect(() => {
@@ -71,7 +105,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Subscribe to real-time products collection when logged in
+  // 2. Subscribe to real-time products collection and auto-seed if empty
   useEffect(() => {
     if (!user) return;
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
@@ -79,7 +113,13 @@ export default function App() {
         id: d.id,
         ...d.data()
       })) as Product[];
-      setProducts(items);
+      
+      // Auto-seed if collection is completely empty
+      if (items.length === 0) {
+        seedDatabase();
+      } else {
+        setProducts(items);
+      }
     });
 
     return () => unsubProducts();
@@ -174,7 +214,7 @@ export default function App() {
     );
   }
 
-  // 1. LOGIN SCREEN (With High-Contrast Input Colors)
+  // 1. LOGIN SCREEN
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -279,10 +319,22 @@ export default function App() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Products Selection List */}
             <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800 mb-4">Beverage Catalog</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold text-slate-800">Beverage Catalog</h2>
+                {userRole === 'admin' && (
+                  <button
+                    onClick={seedDatabase}
+                    disabled={seeding}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition"
+                  >
+                    {seeding ? 'Seeding...' : '⚡ Seed Catalog Items'}
+                  </button>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {products.length === 0 ? (
-                  <p className="text-sm text-slate-500 col-span-2">No products loaded yet. Add items in Firestore or Products tab.</p>
+                  <p className="text-sm text-slate-500 col-span-2">Loading catalog or seeding initial inventory...</p>
                 ) : (
                   products.map((product) => (
                     <div 
@@ -341,7 +393,7 @@ export default function App() {
                             <label className="text-xs font-medium text-slate-500">Qty:</label>
                             <input
                               type="number"
-                              step="any"       /* Allows 0.5, 1.5, 0.25, etc. */
+                              step="any"
                               min="0.01"
                               value={item.quantity === 0 ? '' : item.quantity}
                               onChange={(e) => handleQuantityChange(item.id, e.target.value)}
@@ -410,8 +462,21 @@ export default function App() {
         ) : (
           /* Inventory Table View */
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-bold text-slate-800 mb-2">Beverage Inventory & Pricing</h2>
-            <p className="text-xs text-slate-500 mb-4">Stock levels and selling price catalogue.</p>
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">Beverage Inventory & Pricing</h2>
+                <p className="text-xs text-slate-500">Stock levels and selling price catalogue.</p>
+              </div>
+              {userRole === 'admin' && (
+                <button
+                  onClick={seedDatabase}
+                  disabled={seeding}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow transition"
+                >
+                  {seeding ? 'Seeding...' : '⚡ Seed Default Products'}
+                </button>
+              )}
+            </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
