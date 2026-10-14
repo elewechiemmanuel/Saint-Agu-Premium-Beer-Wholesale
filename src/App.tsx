@@ -40,10 +40,11 @@ interface Customer {
 
 interface Sale {
   id: string;
-  receiptNumber: string;
-  cashierEmail: string;
-  customerName: string;
-  paymentMethod: 'Cash' | 'Bank Transfer' | 'POS';
+  receiptNumber?: string;
+  cashierEmail?: string;
+  cashierName?: string;
+  customerName?: string;
+  paymentMethod?: 'Cash' | 'Bank Transfer' | 'POS';
   items: {
     id: string;
     name: string;
@@ -52,6 +53,7 @@ interface Sale {
     totalPrice: number;
   }[];
   grandTotal: number;
+  formattedDate?: string;
   createdAt: any;
 }
 
@@ -60,7 +62,7 @@ const INITIAL_PRODUCTS = [
   { id: 'prod-02', sku: 'GLD-02', name: 'Gulder Lager Beer (Crate)', brewery: 'Nigerian Breweries', stock: 120, sellingPrice: 32000 },
   { id: 'prod-03', sku: 'STR-03', name: 'Star Lager Beer (Crate)', brewery: 'Nigerian Breweries', stock: 200, sellingPrice: 31000 },
   { id: 'prod-04', sku: 'GNS-04', name: 'Guinness Foreign Extra Stout (Crate)', brewery: 'Guinness Nigeria', stock: 95, sellingPrice: 38000 },
-  { id: 'prod-05', sku: 'LGD-05', name: 'Legend Extra Stout (Crate)', brewery: 'Guinness Nigeria', stock: 80, sellingPrice: 29500 },
+  { id: 'prod-05', sku: 'LGD-05', name: 'Legend Extra Stout (Crate)', brewery: 'Nigerian Breweries', stock: 80, sellingPrice: 29500 },
   { id: 'prod-06', sku: 'HRO-06', name: 'Hero Premium Lager (Crate)', brewery: 'International Breweries', stock: 140, sellingPrice: 29000 },
   { id: 'prod-07', sku: 'TRP-07', name: 'Trophy Extra Special Stout (Crate)', brewery: 'International Breweries', stock: 110, sellingPrice: 29500 },
   { id: 'prod-08', sku: 'BDW-08', name: 'Budweiser Lager Beer (Crate)', brewery: 'International Breweries', stock: 75, sellingPrice: 36000 }
@@ -133,13 +135,13 @@ export default function App() {
         try {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
-            setUserRole(userDoc.data().role || 'cashier');
+            setUserRole(userDoc.data().role || 'user');
           } else {
-            setUserRole('cashier');
+            setUserRole('user');
           }
         } catch (error) {
           console.error("Error fetching user role:", error);
-          setUserRole('cashier');
+          setUserRole('user');
         }
       } else {
         setUser(null);
@@ -152,7 +154,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!user || !userRole) return;
+    if (!user) return;
 
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const items: Product[] = snapshot.docs.map((d) => ({
@@ -175,6 +177,8 @@ export default function App() {
         ...d.data()
       })) as Customer[];
       setCustomers(custs);
+    }, (error) => {
+      console.error("Error fetching customers:", error);
     });
 
     const unsubSales = onSnapshot(collection(db, 'sales'), (snapshot) => {
@@ -184,6 +188,8 @@ export default function App() {
       })) as Sale[];
       salesData.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setSales(salesData);
+    }, (error) => {
+      console.error("Error fetching sales:", error);
     });
 
     return () => {
@@ -250,7 +256,7 @@ export default function App() {
     const saleRecord = {
       receiptNumber: receiptNum,
       cashierName: userRole === 'admin' ? 'Super Admin' : (user?.email?.split('@')[0] || 'Cashier'),
-      cashierEmail: user?.email || 'admin@saintagu.com',
+      cashierEmail: user?.email || 'sales@saintagu.com',
       customerName: customerName || 'Walk-in Customer',
       paymentMethod: paymentMethod,
       items: cart.map((i) => ({
@@ -290,7 +296,7 @@ export default function App() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Receipt - ${completedSale.receiptNumber}</title>
+          <title>Receipt - ${completedSale.receiptNumber || 'RCPT'}</title>
           <style>
             @page { size: 58mm auto; margin: 0; }
             body {
@@ -373,6 +379,7 @@ export default function App() {
       alert('Product added successfully!');
     } catch (err) {
       console.error('Error adding product:', err);
+      alert('Permission denied or failed to add product.');
     }
   };
 
@@ -388,6 +395,7 @@ export default function App() {
       setEditPriceValue('');
     } catch (err) {
       console.error('Error updating price:', err);
+      alert('Permission denied.');
     }
   };
 
@@ -411,6 +419,7 @@ export default function App() {
       alert('Customer created successfully!');
     } catch (err) {
       console.error('Error adding customer:', err);
+      alert('Failed to add customer.');
     }
   };
 
@@ -445,7 +454,7 @@ export default function App() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@saintagu.com"
+                placeholder="sales@saintagu.com"
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg text-slate-900 bg-white"
               />
             </div>
@@ -697,87 +706,79 @@ export default function App() {
           </div>
         )}
 
-        {/* INVENTORY TAB WITH FULL ADMIN CONTROLS */}
+        {/* INVENTORY TAB */}
         {activeTab === 'inventory' && (
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800 mb-4">Add New Product to Inventory</h2>
-              <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">SKU Code</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. HNK-09"
-                    value={newSku}
-                    onChange={(e) => setNewSku(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Product Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Amstel Malta (Crate)"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Brewery / Supplier</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Nigerian Breweries"
-                    value={newBrewery}
-                    onChange={(e) => setNewBrewery(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Stock Quantity</label>
-                  <input
-                    type="number"
-                    placeholder="100"
-                    value={newStock}
-                    onChange={(e) => setNewStock(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Selling Price (₦) *</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="30000"
-                    value={newPrice}
-                    onChange={(e) => setNewPrice(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
-                  />
-                </div>
-                <div className="sm:col-span-2 lg:col-span-5 flex justify-end">
-                  <button
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-lg transition shadow-sm text-sm"
-                  >
-                    + Add Product
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800">Beverage Inventory & Price Control</h2>
-                  <p className="text-xs text-slate-500">
-                    {userRole === 'admin' 
-                      ? 'Admin Mode: Click "Edit Price" on any product to adjust its selling price live.' 
-                      : 'Stock levels and selling price catalogue.'}
-                  </p>
-                </div>
+            {userRole === 'admin' && (
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 className="text-lg font-bold text-slate-800 mb-4">Add New Product to Inventory</h2>
+                <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">SKU Code</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. HNK-09"
+                      value={newSku}
+                      onChange={(e) => setNewSku(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Product Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Amstel Malta (Crate)"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Brewery / Supplier</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Nigerian Breweries"
+                      value={newBrewery}
+                      onChange={(e) => setNewBrewery(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Stock Quantity</label>
+                    <input
+                      type="number"
+                      placeholder="100"
+                      value={newStock}
+                      onChange={(e) => setNewStock(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Selling Price (₦) *</label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="30000"
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-5 flex justify-end">
+                    <button
+                      type="submit"
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-lg transition shadow-sm text-sm"
+                    >
+                      + Add Product
+                    </button>
+                  </div>
+                </form>
               </div>
+            )}
 
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-lg font-bold text-slate-800 mb-4">Beverage Inventory & Price Control</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -798,7 +799,7 @@ export default function App() {
                         <td className="py-3 px-4 text-slate-500">{prod.brewery}</td>
                         <td className="py-3 px-4 font-bold text-slate-700">{prod.stock} Units</td>
                         <td className="py-3 px-4 font-bold text-emerald-600">
-                          {editingPriceId === prod.id ? (
+                          {editingPriceId === prod.id && userRole === 'admin' ? (
                             <div className="flex items-center gap-2">
                               <input
                                 type="number"
@@ -908,8 +909,6 @@ export default function App() {
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-bold text-slate-800 mb-2">Registered Wholesale Customers</h2>
-              <p className="text-xs text-slate-500 mb-4">Total Customers: {customers.length}</p>
-
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -924,7 +923,7 @@ export default function App() {
                     {customers.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="py-6 text-center text-slate-400 text-sm">
-                          No customers registered yet. Use the form above to add your first customer.
+                          No customers registered yet.
                         </td>
                       </tr>
                     ) : (
@@ -970,8 +969,6 @@ export default function App() {
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-bold text-slate-800 mb-2">Detailed Sales Log</h2>
-              <p className="text-xs text-slate-500 mb-4">Complete transaction records including date, items, quantities, and payment methods.</p>
-
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -992,40 +989,54 @@ export default function App() {
                         </td>
                       </tr>
                     ) : (
-                      sales.map((sale) => (
-                        <tr key={sale.id} className="hover:bg-slate-50 align-top">
-                          <td className="py-3 px-4 text-xs font-medium text-slate-600">
-                            <div className="font-bold text-slate-800">{sale.formattedDate.split(',')[0]}</div>
-                            <div className="text-slate-400">{sale.formattedDate.split(',')[1]}</div>
-                          </td>
-                          <td className="py-3 px-4 font-semibold text-slate-800">{sale.customerName}</td>
-                          <td className="py-3 px-4">
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
-                              sale.paymentMethod === 'Bank Transfer'
-                                ? 'bg-purple-100 text-purple-700'
-                                : sale.paymentMethod === 'POS'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-emerald-100 text-emerald-700'
-                            }`}>
-                              {sale.paymentMethod || 'Cash'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <ul className="space-y-1 text-xs">
-                              {sale.items?.map((item, idx) => (
-                                <li key={idx} className="text-slate-700">
-                                  <span className="font-bold text-slate-900">{item.quantity}x</span> {item.name} 
-                                  <span className="text-slate-400"> (@ ₦{(item.unitPrice || 0).toLocaleString()})</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </td>
-                          <td className="py-3 px-4 text-xs text-slate-500">{sale.cashierEmail}</td>
-                          <td className="py-3 px-4 text-right font-extrabold text-emerald-600">
-                            ₦{(sale.grandTotal || 0).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))
+                      sales.map((sale) => {
+                        let dateStr = 'Recent';
+                        let timeStr = '';
+                        if (sale.formattedDate && sale.formattedDate.includes(',')) {
+                          const parts = sale.formattedDate.split(',');
+                          dateStr = parts[0];
+                          timeStr = parts[1];
+                        } else if (sale.createdAt?.seconds) {
+                          const d = new Date(sale.createdAt.seconds * 1000);
+                          dateStr = d.toLocaleDateString();
+                          timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        }
+
+                        return (
+                          <tr key={sale.id} className="hover:bg-slate-50 align-top">
+                            <td className="py-3 px-4 text-xs font-medium text-slate-600">
+                              <div className="font-bold text-slate-800">{dateStr}</div>
+                              <div className="text-slate-400">{timeStr}</div>
+                            </td>
+                            <td className="py-3 px-4 font-semibold text-slate-800">{sale.customerName || 'Walk-in Customer'}</td>
+                            <td className="py-3 px-4">
+                              <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+                                sale.paymentMethod === 'Bank Transfer'
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : sale.paymentMethod === 'POS'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-emerald-100 text-emerald-700'
+                              }`}>
+                                {sale.paymentMethod || 'Cash'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <ul className="space-y-1 text-xs">
+                                {sale.items?.map((item, idx) => (
+                                  <li key={idx} className="text-slate-700">
+                                    <span className="font-bold text-slate-900">{item.quantity}x</span> {item.name} 
+                                    <span className="text-slate-400"> (@ ₦{(item.unitPrice || 0).toLocaleString()})</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                            <td className="py-3 px-4 text-xs text-slate-500">{sale.cashierEmail || 'Admin'}</td>
+                            <td className="py-3 px-4 text-right font-extrabold text-emerald-600">
+                              ₦{(sale.grandTotal || 0).toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
