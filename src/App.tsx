@@ -151,7 +151,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Safe product loading: Only admin triggers auto-seed if empty
   useEffect(() => {
     if (!user || !userRole) return;
 
@@ -698,30 +697,340 @@ export default function App() {
           </div>
         )}
 
+        {/* INVENTORY TAB WITH FULL ADMIN CONTROLS */}
         {activeTab === 'inventory' && (
-          <div className="bg-white p-6 rounded-xl border border-slate-200">
-            <h2 className="text-lg font-bold mb-4">Beverage Inventory & Pricing</h2>
-            <p className="text-xs text-slate-500 mb-4">Total Products: {products.length}</p>
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b bg-slate-50 text-xs text-slate-500 uppercase">
-                  <th className="py-2 px-3">SKU</th>
-                  <th className="py-2 px-3">Name</th>
-                  <th className="py-2 px-3">Stock</th>
-                  <th className="py-2 px-3">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((p) => (
-                  <tr key={p.id} className="border-b text-sm">
-                    <td className="py-2 px-3 font-mono">{p.sku}</td>
-                    <td className="py-2 px-3 font-semibold">{p.name}</td>
-                    <td className="py-2 px-3">{p.stock}</td>
-                    <td className="py-2 px-3 text-emerald-600 font-bold">₦{p.sellingPrice.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-lg font-bold text-slate-800 mb-4">Add New Product to Inventory</h2>
+              <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">SKU Code</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. HNK-09"
+                    value={newSku}
+                    onChange={(e) => setNewSku(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Product Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Amstel Malta (Crate)"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Brewery / Supplier</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Nigerian Breweries"
+                    value={newBrewery}
+                    onChange={(e) => setNewBrewery(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Stock Quantity</label>
+                  <input
+                    type="number"
+                    placeholder="100"
+                    value={newStock}
+                    onChange={(e) => setNewStock(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Selling Price (₦) *</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="30000"
+                    value={newPrice}
+                    onChange={(e) => setNewPrice(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                  />
+                </div>
+                <div className="sm:col-span-2 lg:col-span-5 flex justify-end">
+                  <button
+                    type="submit"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-lg transition shadow-sm text-sm"
+                  >
+                    + Add Product
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">Beverage Inventory & Price Control</h2>
+                  <p className="text-xs text-slate-500">
+                    {userRole === 'admin' 
+                      ? 'Admin Mode: Click "Edit Price" on any product to adjust its selling price live.' 
+                      : 'Stock levels and selling price catalogue.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-xs text-slate-500 font-semibold uppercase">
+                      <th className="py-3 px-4">SKU</th>
+                      <th className="py-3 px-4">Product Name</th>
+                      <th className="py-3 px-4">Brewery</th>
+                      <th className="py-3 px-4">Stock</th>
+                      <th className="py-3 px-4">Selling Price</th>
+                      {userRole === 'admin' && <th className="py-3 px-4 text-right">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {products.map((prod) => (
+                      <tr key={prod.id} className="hover:bg-slate-50">
+                        <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-600">{prod.sku}</td>
+                        <td className="py-3 px-4 font-semibold text-slate-800">{prod.name}</td>
+                        <td className="py-3 px-4 text-slate-500">{prod.brewery}</td>
+                        <td className="py-3 px-4 font-bold text-slate-700">{prod.stock} Units</td>
+                        <td className="py-3 px-4 font-bold text-emerald-600">
+                          {editingPriceId === prod.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                value={editPriceValue}
+                                onChange={(e) => setEditPriceValue(e.target.value)}
+                                className="w-28 px-2 py-1 border border-blue-500 rounded text-sm text-slate-900 bg-white font-bold"
+                              />
+                              <button
+                                onClick={() => handleUpdatePrice(prod.id)}
+                                className="bg-emerald-600 text-white text-xs px-2 py-1 rounded font-bold hover:bg-emerald-700"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingPriceId(null)}
+                                className="bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded font-bold hover:bg-slate-300"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            `₦${(prod.sellingPrice || 0).toLocaleString()}`
+                          )}
+                        </td>
+                        {userRole === 'admin' && (
+                          <td className="py-3 px-4 text-right">
+                            {editingPriceId !== prod.id && (
+                              <button
+                                onClick={() => {
+                                  setEditingPriceId(prod.id);
+                                  setEditPriceValue(prod.sellingPrice.toString());
+                                }}
+                                className="bg-slate-100 hover:bg-blue-50 text-blue-600 text-xs font-bold py-1 px-3 rounded border border-slate-200 transition"
+                              >
+                                ✎ Edit Price
+                              </button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CUSTOMERS TAB */}
+        {activeTab === 'customers' && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-lg font-bold text-slate-800 mb-4">Register New Customer</h2>
+              <form onSubmit={handleAddCustomer} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Customer / Business Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Chief Okonkwo Stores"
+                    value={custNameInput}
+                    onChange={(e) => setCustNameInput(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Phone Number *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 08031234567"
+                    value={custPhoneInput}
+                    onChange={(e) => setCustPhoneInput(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    placeholder="customer@gmail.com"
+                    value={custEmailInput}
+                    onChange={(e) => setCustEmailInput(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Delivery Address</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Market Road, Onitsha"
+                    value={custAddressInput}
+                    onChange={(e) => setCustAddressInput(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white"
+                  />
+                </div>
+                <div className="sm:col-span-2 lg:col-span-4 flex justify-end">
+                  <button
+                    type="submit"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-lg transition shadow-sm text-sm"
+                  >
+                    + Register Customer
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-lg font-bold text-slate-800 mb-2">Registered Wholesale Customers</h2>
+              <p className="text-xs text-slate-500 mb-4">Total Customers: {customers.length}</p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-xs text-slate-500 font-semibold uppercase">
+                      <th className="py-3 px-4">Customer Name</th>
+                      <th className="py-3 px-4">Phone Number</th>
+                      <th className="py-3 px-4">Email</th>
+                      <th className="py-3 px-4">Address</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {customers.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-6 text-center text-slate-400 text-sm">
+                          No customers registered yet. Use the form above to add your first customer.
+                        </td>
+                      </tr>
+                    ) : (
+                      customers.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-50">
+                          <td className="py-3 px-4 font-bold text-slate-800">{c.name}</td>
+                          <td className="py-3 px-4 font-mono text-slate-700">{c.phone}</td>
+                          <td className="py-3 px-4 text-slate-500">{c.email || 'N/A'}</td>
+                          <td className="py-3 px-4 text-slate-500">{c.address || 'N/A'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* REPORTS TAB */}
+        {activeTab === 'reports' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-semibold text-slate-500 uppercase">Total Revenue</p>
+                <p className="text-2xl font-black text-emerald-600 mt-1">
+                  ₦{sales.reduce((sum, s) => sum + (s.grandTotal || 0), 0).toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-semibold text-slate-500 uppercase">Total Transactions</p>
+                <p className="text-2xl font-black text-blue-600 mt-1">{sales.length}</p>
+              </div>
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-semibold text-slate-500 uppercase">Average Order Value</p>
+                <p className="text-2xl font-black text-purple-600 mt-1">
+                  ₦{sales.length > 0 
+                    ? Math.round(sales.reduce((sum, s) => sum + (s.grandTotal || 0), 0) / sales.length).toLocaleString() 
+                    : 0}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h2 className="text-lg font-bold text-slate-800 mb-2">Detailed Sales Log</h2>
+              <p className="text-xs text-slate-500 mb-4">Complete transaction records including date, items, quantities, and payment methods.</p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-xs text-slate-500 font-semibold uppercase">
+                      <th className="py-3 px-4">Date & Time</th>
+                      <th className="py-3 px-4">Customer</th>
+                      <th className="py-3 px-4">Payment Method</th>
+                      <th className="py-3 px-4">Items Sold & Qty</th>
+                      <th className="py-3 px-4">Cashier</th>
+                      <th className="py-3 px-4 text-right">Grand Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {sales.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                          No sales transactions logged yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      sales.map((sale) => (
+                        <tr key={sale.id} className="hover:bg-slate-50 align-top">
+                          <td className="py-3 px-4 text-xs font-medium text-slate-600">
+                            <div className="font-bold text-slate-800">{sale.formattedDate.split(',')[0]}</div>
+                            <div className="text-slate-400">{sale.formattedDate.split(',')[1]}</div>
+                          </td>
+                          <td className="py-3 px-4 font-semibold text-slate-800">{sale.customerName}</td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+                              sale.paymentMethod === 'Bank Transfer'
+                                ? 'bg-purple-100 text-purple-700'
+                                : sale.paymentMethod === 'POS'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              {sale.paymentMethod || 'Cash'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <ul className="space-y-1 text-xs">
+                              {sale.items?.map((item, idx) => (
+                                <li key={idx} className="text-slate-700">
+                                  <span className="font-bold text-slate-900">{item.quantity}x</span> {item.name} 
+                                  <span className="text-slate-400"> (@ ₦{(item.unitPrice || 0).toLocaleString()})</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </td>
+                          <td className="py-3 px-4 text-xs text-slate-500">{sale.cashierEmail}</td>
+                          <td className="py-3 px-4 text-right font-extrabold text-emerald-600">
+                            ₦{(sale.grandTotal || 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </main>
