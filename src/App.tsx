@@ -142,7 +142,7 @@ export default function App() {
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editPriceValue, setEditPriceValue] = useState('');
 
-  // Editing stock state (NEW)
+  // Editing stock state
   const [editingStockId, setEditingStockId] = useState<string | null>(null);
   const [editStockValue, setEditStockValue] = useState('');
 
@@ -437,7 +437,6 @@ export default function App() {
     }
   };
 
-  // Update Stock Logic for Admin (NEW)
   const handleUpdateStock = async (productId: string) => {
     const updatedStock = parseFloat(editStockValue);
     if (isNaN(updatedStock) || updatedStock < 0) return;
@@ -594,23 +593,24 @@ export default function App() {
       <main className="p-6 max-w-7xl mx-auto">
         {activeTab === 'pos' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-slate-800">Beverage Catalog</h2>
+            <div className="lg:col-span-2 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-base font-bold text-slate-800">Beverage Catalog</h2>
                 {userRole === 'admin' && (
                   <button
                     onClick={seedDatabase}
                     disabled={seeding}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2.5 py-1 rounded shadow transition"
                   >
-                    {seeding ? 'Seeding...' : '⚡ Seed Catalog Items'}
+                    {seeding ? 'Seeding...' : '⚡ Seed Items'}
                   </button>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
+              {/* Compact Grid: 2 columns on small screens, 3 on medium, 4 on desktop */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5 max-h-[620px] overflow-y-auto pr-1">
                 {products.length === 0 ? (
-                  <div className="col-span-2 text-center py-10">
+                  <div className="col-span-full text-center py-10">
                     <p className="text-sm text-slate-500 mb-3">No catalog items found.</p>
                     {userRole === 'admin' && (
                       <button
@@ -625,23 +625,34 @@ export default function App() {
                   products.map((product) => (
                     <div 
                       key={product.id}
-                      className="border border-slate-200 rounded-lg p-4 flex flex-col justify-between hover:border-blue-500 transition"
+                      className="border border-slate-200 rounded-lg p-2.5 flex flex-col justify-between hover:border-blue-500 transition bg-slate-50/50"
                     >
                       <div>
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{product.sku}</span>
-                        <h3 className="font-bold text-slate-800 mt-1">{product.name}</h3>
-                        <p className="text-xs text-slate-500">{product.brewery}</p>
-                        <p className="text-xs text-slate-400 mt-1">Stock: <span className="font-bold text-slate-700">{product.stock} units</span></p>
-                        <p className="text-sm font-bold text-slate-900 mt-2">
-                          ₦{(product.sellingPrice || 0).toLocaleString()} <span className="text-xs font-normal text-slate-400">/ Crate</span>
-                        </p>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                            {product.sku}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {product.stock} left
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-slate-800 text-xs leading-snug line-clamp-2" title={product.name}>
+                          {product.name}
+                        </h3>
+                        <p className="text-[10px] text-slate-400 truncate mt-0.5">{product.brewery}</p>
                       </div>
-                      <button
-                        onClick={() => addToCart(product)}
-                        className="mt-3 w-full bg-slate-900 hover:bg-blue-600 text-white text-xs font-medium py-2 rounded transition"
-                      >
-                        + Add to Sale
-                      </button>
+
+                      <div className="mt-2 pt-2 border-t border-slate-200/60 flex flex-col gap-1.5">
+                        <p className="text-xs font-extrabold text-slate-900">
+                          ₦{(product.sellingPrice || 0).toLocaleString()}
+                        </p>
+                        <button
+                          onClick={() => addToCart(product)}
+                          className="w-full bg-slate-900 hover:bg-blue-600 text-white text-[11px] font-medium py-1.5 rounded transition shadow-sm"
+                        >
+                          + Add
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
@@ -672,7 +683,7 @@ export default function App() {
 
                 {cart.length === 0 ? (
                   <div className="text-center py-6 text-slate-400 text-sm">
-                    Cart is empty. Click "+ Add to Sale" on any drink.
+                    Cart is empty. Click "+ Add" on any drink.
                   </div>
                 ) : (
                   <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
