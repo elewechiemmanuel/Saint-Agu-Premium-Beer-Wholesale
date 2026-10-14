@@ -142,6 +142,10 @@ export default function App() {
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editPriceValue, setEditPriceValue] = useState('');
 
+  // Editing stock state (NEW)
+  const [editingStockId, setEditingStockId] = useState<string | null>(null);
+  const [editStockValue, setEditStockValue] = useState('');
+
   const seedDatabase = async () => {
     try {
       setSeeding(true);
@@ -433,6 +437,23 @@ export default function App() {
     }
   };
 
+  // Update Stock Logic for Admin (NEW)
+  const handleUpdateStock = async (productId: string) => {
+    const updatedStock = parseFloat(editStockValue);
+    if (isNaN(updatedStock) || updatedStock < 0) return;
+
+    try {
+      await updateDoc(doc(db, 'products', productId), {
+        stock: updatedStock
+      });
+      setEditingStockId(null);
+      setEditStockValue('');
+    } catch (err) {
+      console.error('Error updating stock:', err);
+      alert('Permission denied.');
+    }
+  };
+
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!custNameInput || !custPhoneInput) return;
@@ -610,6 +631,7 @@ export default function App() {
                         <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{product.sku}</span>
                         <h3 className="font-bold text-slate-800 mt-1">{product.name}</h3>
                         <p className="text-xs text-slate-500">{product.brewery}</p>
+                        <p className="text-xs text-slate-400 mt-1">Stock: <span className="font-bold text-slate-700">{product.stock} units</span></p>
                         <p className="text-sm font-bold text-slate-900 mt-2">
                           ₦{(product.sellingPrice || 0).toLocaleString()} <span className="text-xs font-normal text-slate-400">/ Crate</span>
                         </p>
@@ -852,7 +874,36 @@ export default function App() {
                         <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-600">{prod.sku}</td>
                         <td className="py-3 px-4 font-semibold text-slate-800">{prod.name}</td>
                         <td className="py-3 px-4 text-slate-500">{prod.brewery}</td>
-                        <td className="py-3 px-4 font-bold text-slate-700">{prod.stock} Units</td>
+                        
+                        {/* Editable Stock Column */}
+                        <td className="py-3 px-4 font-bold text-slate-700">
+                          {editingStockId === prod.id && userRole === 'admin' ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                value={editStockValue}
+                                onChange={(e) => setEditStockValue(e.target.value)}
+                                className="w-20 px-2 py-1 border border-blue-500 rounded text-sm text-slate-900 bg-white font-bold"
+                              />
+                              <button
+                                onClick={() => handleUpdateStock(prod.id)}
+                                className="bg-emerald-600 text-white text-xs px-2 py-1 rounded font-bold hover:bg-emerald-700"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingStockId(null)}
+                                className="bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded font-bold hover:bg-slate-300"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            `${prod.stock} Units`
+                          )}
+                        </td>
+
+                        {/* Editable Price Column */}
                         <td className="py-3 px-4 font-bold text-emerald-600">
                           {editingPriceId === prod.id && userRole === 'admin' ? (
                             <div className="flex items-center gap-2">
@@ -879,19 +930,34 @@ export default function App() {
                             `₦${(prod.sellingPrice || 0).toLocaleString()}`
                           )}
                         </td>
+
+                        {/* Action Buttons for Admin */}
                         {userRole === 'admin' && (
                           <td className="py-3 px-4 text-right">
-                            {editingPriceId !== prod.id && (
-                              <button
-                                onClick={() => {
-                                  setEditingPriceId(prod.id);
-                                  setEditPriceValue(prod.sellingPrice.toString());
-                                }}
-                                className="bg-slate-100 hover:bg-blue-50 text-blue-600 text-xs font-bold py-1 px-3 rounded border border-slate-200 transition"
-                              >
-                                ✎ Edit Price
-                              </button>
-                            )}
+                            <div className="flex justify-end gap-2">
+                              {editingStockId !== prod.id && (
+                                <button
+                                  onClick={() => {
+                                    setEditingStockId(prod.id);
+                                    setEditStockValue(prod.stock.toString());
+                                  }}
+                                  className="bg-slate-100 hover:bg-emerald-50 text-emerald-700 text-xs font-bold py-1 px-2.5 rounded border border-slate-200 transition"
+                                >
+                                  ✎ Edit Stock
+                                </button>
+                              )}
+                              {editingPriceId !== prod.id && (
+                                <button
+                                  onClick={() => {
+                                    setEditingPriceId(prod.id);
+                                    setEditPriceValue(prod.sellingPrice.toString());
+                                  }}
+                                  className="bg-slate-100 hover:bg-blue-50 text-blue-600 text-xs font-bold py-1 px-2.5 rounded border border-slate-200 transition"
+                                >
+                                  ✎ Edit Price
+                                </button>
+                              )}
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -1179,7 +1245,7 @@ export default function App() {
 
             <div className="border-t border-slate-800 mb-4"></div>
 
-            {/* Print Confirmation Question */}
+            {/* Print Confirmation Prompt */}
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 text-center font-sans">
               <p className="text-xs font-bold text-slate-700 mb-2">Do you want to print this receipt?</p>
               <div className="flex gap-2 justify-center">
