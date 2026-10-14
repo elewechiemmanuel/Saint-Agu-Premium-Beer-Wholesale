@@ -58,19 +58,49 @@ interface Sale {
 }
 
 const INITIAL_PRODUCTS = [
-  { id: 'prod-01', sku: 'HNK-01', name: 'Heineken Premium Lager (Crate)', brewery: 'Nigerian Breweries', stock: 150, sellingPrice: 35000 },
-  { id: 'prod-02', sku: 'GLD-02', name: 'Gulder Lager Beer (Crate)', brewery: 'Nigerian Breweries', stock: 120, sellingPrice: 32000 },
-  { id: 'prod-03', sku: 'STR-03', name: 'Star Lager Beer (Crate)', brewery: 'Nigerian Breweries', stock: 200, sellingPrice: 31000 },
-  { id: 'prod-04', sku: 'GNS-04', name: 'Guinness Foreign Extra Stout (Crate)', brewery: 'Guinness Nigeria', stock: 95, sellingPrice: 38000 },
-  { id: 'prod-05', sku: 'LGD-05', name: 'Legend Extra Stout (Crate)', brewery: 'Nigerian Breweries', stock: 80, sellingPrice: 29500 },
-  { id: 'prod-06', sku: 'HRO-06', name: 'Hero Premium Lager (Crate)', brewery: 'International Breweries', stock: 140, sellingPrice: 29000 },
-  { id: 'prod-07', sku: 'TRP-07', name: 'Trophy Extra Special Stout (Crate)', brewery: 'International Breweries', stock: 110, sellingPrice: 29500 },
-  { id: 'prod-08', sku: 'BDW-08', name: 'Budweiser Lager Beer (Crate)', brewery: 'International Breweries', stock: 75, sellingPrice: 36000 }
+  // International Breweries Plc
+  { id: 'ib-01', sku: 'TRP-01', name: 'Trophy', brewery: 'International Breweries Plc', stock: 100, sellingPrice: 8800 },
+  { id: 'ib-02', sku: 'TRS-02', name: 'Trophy Stout', brewery: 'International Breweries Plc', stock: 100, sellingPrice: 10000 },
+  { id: 'ib-03', sku: 'TRC-03', name: 'Trophy Can', brewery: 'International Breweries Plc', stock: 100, sellingPrice: 16500 },
+  { id: 'ib-04', sku: 'HRO-04', name: 'Hero', brewery: 'International Breweries Plc', stock: 100, sellingPrice: 9000 },
+  { id: 'ib-05', sku: 'BDW-05', name: 'Budweiser', brewery: 'International Breweries Plc', stock: 100, sellingPrice: 11500 },
+  { id: 'ib-06', sku: 'FLF-06', name: 'Flying Fish', brewery: 'International Breweries Plc', stock: 100, sellingPrice: 15000 },
+  { id: 'ib-07', sku: 'CSL-07', name: 'Castle Lite', brewery: 'International Breweries Plc', stock: 100, sellingPrice: 10500 },
+
+  // Nigeria Brewery Plc
+  { id: 'nb-01', sku: 'GLD-01', name: 'Goldberg', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 9800 },
+  { id: 'nb-02', sku: 'GBK-02', name: 'Goldberg Black', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 15500 },
+  { id: 'nb-03', sku: 'GCN-03', name: 'Goldberg Can', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 16500 },
+  { id: 'nb-04', sku: 'STR-04', name: 'Star', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 13500 },
+  { id: 'nb-05', sku: 'SRD-05', name: 'Star Radler', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 15000 },
+  { id: 'nb-06', sku: 'LIF-06', name: 'Life', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 10000 },
+  { id: 'nb-07', sku: '33B-07', name: '33 Export', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 10000 },
+  { id: 'nb-08', sku: 'AMT-08', name: 'Amstel Malta', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 15000 },
+  { id: 'nb-09', sku: 'MLT-09', name: 'Maltina', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 15000 },
+  { id: 'nb-10', sku: 'MCN-10', name: 'Can Maltina', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 14000 },
+  { id: 'nb-11', sku: 'MPET-11', name: 'Maltina Pet', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 5500 },
+  { id: 'nb-12', sku: 'LGD-12', name: 'Legend', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 12500 },
+  { id: 'nb-13', sku: 'SHNK-13', name: 'Small Heineken', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 19000 },
+  { id: 'nb-14', sku: 'BHNK-14', name: 'Big Heineken', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 14900 },
+  { id: 'nb-15', sku: 'ACN-15', name: 'Amstel Can', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 14000 },
+  { id: 'nb-16', sku: 'FYR-16', name: 'Fayrouz', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 14000 },
+  { id: 'nb-17', sku: 'FYC-17', name: 'Fayrouz Can', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 14000 },
+  { id: 'nb-18', sku: 'TIG-18', name: 'Tiger', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 16500 },
+  { id: 'nb-19', sku: 'DSP-19', name: 'Desperado', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 22000 },
+  { id: 'nb-20', sku: 'GLD-20', name: 'Gulder', brewery: 'Nigeria Brewery Plc', stock: 100, sellingPrice: 12600 },
+
+  // Guinness
+  { id: 'gns-01', sku: 'BST-01', name: 'Big Stout', brewery: 'Guinness', stock: 100, sellingPrice: 20000 },
+  { id: 'gns-02', sku: 'MST-02', name: 'Medium Stout', brewery: 'Guinness', stock: 100, sellingPrice: 19000 },
+  { id: 'gns-03', sku: 'SST-03', name: 'Small Stout', brewery: 'Guinness', stock: 100, sellingPrice: 19400 },
+  { id: 'gns-04', sku: 'SMN-04', name: 'Smirnoff Ice', brewery: 'Guinness', stock: 100, sellingPrice: 18000 },
+  { id: 'gns-05', sku: 'MGS-05', name: 'Malta Guinness', brewery: 'Guinness', stock: 100, sellingPrice: 14500 },
+  { id: 'gns-06', sku: 'MGC-06', name: 'Malta Guinness Can', brewery: 'Guinness', stock: 100, sellingPrice: 13500 }
 ];
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('cashier');
   const [loading, setLoading] = useState(true);
 
   // Login states
@@ -132,20 +162,23 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        try {
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userDoc.exists()) {
-            setUserRole(userDoc.data().role || 'user');
-          } else {
-            setUserRole('user');
+        if (currentUser.email === 'admin@saintagu.com') {
+          setUserRole('admin');
+        } else {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+            if (userDoc.exists()) {
+              setUserRole(userDoc.data().role || 'cashier');
+            } else {
+              setUserRole('cashier');
+            }
+          } catch (error) {
+            setUserRole('cashier');
           }
-        } catch (error) {
-          console.error("Error fetching user role:", error);
-          setUserRole('user');
         }
       } else {
         setUser(null);
-        setUserRole(null);
+        setUserRole('cashier');
       }
       setLoading(false);
     });
@@ -356,6 +389,7 @@ export default function App() {
 
     printWindow.document.write(html);
     printWindow.document.close();
+    setCompletedSale(null);
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -379,7 +413,7 @@ export default function App() {
       alert('Product added successfully!');
     } catch (err) {
       console.error('Error adding product:', err);
-      alert('Permission denied or failed to add product.');
+      alert('Permission denied.');
     }
   };
 
@@ -489,7 +523,7 @@ export default function App() {
         <div>
           <h1 className="text-xl font-bold text-slate-800">Saint Agu Premium Beer Wholesale</h1>
           <p className="text-xs text-slate-500">
-            Role: <span className="font-semibold uppercase text-blue-600">{userRole}</span> ({user.email})
+            No. 19 Musa Amidu Street Ijegun Satellite town | Role: <span className="font-semibold uppercase text-blue-600">{userRole}</span> ({user.email})
           </p>
         </div>
 
@@ -553,9 +587,19 @@ export default function App() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
                 {products.length === 0 ? (
-                  <p className="text-sm text-slate-500 col-span-2">Loading catalog or seeding initial inventory...</p>
+                  <div className="col-span-2 text-center py-10">
+                    <p className="text-sm text-slate-500 mb-3">No catalog items found.</p>
+                    {userRole === 'admin' && (
+                      <button
+                        onClick={seedDatabase}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded shadow"
+                      >
+                        Click here to populate catalog items
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   products.map((product) => (
                     <div 
@@ -778,7 +822,18 @@ export default function App() {
             )}
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <h2 className="text-lg font-bold text-slate-800 mb-4">Beverage Inventory & Price Control</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold text-slate-800">Beverage Inventory & Price Control</h2>
+                {userRole === 'admin' && (
+                  <button
+                    onClick={seedDatabase}
+                    disabled={seeding}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition"
+                  >
+                    {seeding ? 'Updating...' : '⚡ Force Update Catalog Prices'}
+                  </button>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -1122,23 +1177,27 @@ export default function App() {
               Thank you for your patronage!
             </div>
 
-            <div className="border-t border-slate-800 mb-5"></div>
+            <div className="border-t border-slate-800 mb-4"></div>
 
-            <div className="flex gap-3 font-sans">
-              <button
-                type="button"
-                onClick={print58mmReceipt}
-                className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-lg transition text-xs flex items-center justify-center gap-1.5 shadow"
-              >
-                🖨️ Print
-              </button>
-              <button
-                type="button"
-                onClick={() => setCompletedSale(null)}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-lg transition text-xs shadow"
-              >
-                New Sale
-              </button>
+            {/* Print Confirmation Question */}
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 text-center font-sans">
+              <p className="text-xs font-bold text-slate-700 mb-2">Do you want to print this receipt?</p>
+              <div className="flex gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={print58mmReceipt}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-1.5 rounded text-xs shadow transition"
+                >
+                  Yes, Print
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCompletedSale(null)}
+                  className="bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold px-5 py-1.5 rounded text-xs transition"
+                >
+                  No, Skip
+                </button>
+              </div>
             </div>
           </div>
         </div>
