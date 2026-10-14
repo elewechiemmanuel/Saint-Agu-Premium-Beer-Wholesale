@@ -329,6 +329,15 @@ export default function App() {
     const printWindow = window.open('', '_blank', 'width=380,height=650');
     if (!printWindow) return;
 
+    const itemsRows = completedSale.items.map((item: any) => `
+      <tr>
+        <td>${item.name}</td>
+        <td class="center">${item.quantity}</td>
+        <td class="right">${item.unitPrice.toLocaleString()}</td>
+        <td class="right">${item.totalPrice.toLocaleString()}</td>
+      </tr>
+    `).join('');
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -350,6 +359,7 @@ export default function App() {
             table { width: 100%; border-collapse: collapse; margin: 4px 0; }
             th, td { text-align: left; padding: 2px 0; font-size: 11px; }
             .right { text-align: right; }
+            .powered { font-size: 9px; font-style: italic; margin-top: 6px; }
           </style>
         </head>
         <body onload="window.print(); window.close();">
@@ -371,14 +381,7 @@ export default function App() {
               </tr>
             </thead>
             <tbody>
-              ${completedSale.items.map((item: any) => `
-                <tr>
-                  <td>\${item.name}</td>
-                  <td class="center">\${item.quantity}</td>
-                  <td class="right">\${item.unitPrice.toLocaleString()}</td>
-                  <td class="right">\${item.totalPrice.toLocaleString()}</td>
-                </tr>
-              `).join('')}
+              ${itemsRows}
             </tbody>
           </table>
           <div class="line"></div>
@@ -387,6 +390,7 @@ export default function App() {
           <div>Change: <span style="float: right;">₦0</span></div>
           <div class="line"></div>
           <div class="center" style="margin-top: 8px;">Thank you for your patronage!</div>
+          <div class="center powered">Powered by EmmytexFavourite Global Ventures</div>
         </body>
       </html>
     `;
@@ -607,7 +611,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Compact Grid: 2 columns on small screens, 3 on medium, 4 on desktop */}
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5 max-h-[620px] overflow-y-auto pr-1">
                 {products.length === 0 ? (
                   <div className="col-span-full text-center py-10">
@@ -1250,8 +1253,12 @@ export default function App() {
               </div>
             </div>
 
-            <div className="text-center text-slate-600 my-4 text-[11px]">
+            <div className="text-center text-slate-600 my-3 text-[11px]">
               Thank you for your patronage!
+            </div>
+            
+            <div className="text-center text-slate-400 italic text-[10px] mb-4">
+              Powered by EmmytexFavourite Global Ventures
             </div>
 
             <div className="border-t border-slate-800 mb-4"></div>
