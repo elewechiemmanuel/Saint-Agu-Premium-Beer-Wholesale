@@ -91,6 +91,16 @@ export default function App() {
   const [checkoutSuccess, setCheckoutSuccess] = useState('');
   const [seeding, setSeeding] = useState(false);
 
+  // Print Receipt Confirmation Modal State
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [pendingSaleData, setPendingSaleData] = useState<{
+    customerName: string;
+    paymentMethod: 'Cash' | 'Bank Transfer' | 'POS';
+    items: any[];
+    grandTotal: number;
+    cashierEmail: string;
+  } | null>(null);
+
   // New Product Modal/Form state
   const [newSku, setNewSku] = useState('');
   const [newName, setNewName] = useState('');
@@ -153,11 +163,10 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Real-time Firestore Subscriptions (Products, Customers, Sales)
+  // 2. Real-time Firestore Subscriptions
   useEffect(() => {
     if (!user) return;
 
-    // Subscribe to Products
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
       const items: Product[] = snapshot.docs.map((d) => ({
         id: d.id,
@@ -171,7 +180,6 @@ export default function App() {
       }
     });
 
-    // Subscribe to Customers
     const unsubCustomers = onSnapshot(collection(db, 'customers'), (snapshot) => {
       const custs: Customer[] = snapshot.docs.map((d) => ({
         id: d.id,
@@ -180,13 +188,11 @@ export default function App() {
       setCustomers(custs);
     });
 
-    // Subscribe to Sales
     const unsubSales = onSnapshot(collection(db, 'sales'), (snapshot) => {
       const salesData: Sale[] = snapshot.docs.map((d) => ({
         id: d.id,
         ...d.data()
       })) as Sale[];
-      // Sort sales by newest first
       salesData.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setSales(salesData);
     });
@@ -248,39 +254,137 @@ export default function App() {
     return cart.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0);
   };
 
-  // Submit POS Checkout to Firestore
-  const handleCheckout = async (e: React.FormEvent) => {
+  // Trigger Checkout Confirmation & Prompt for Receipt Printing
+  const handleInitiateCheckout = (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
 
+    const salePayload = {
+      cashierEmail: user?.email || 'admin@saintagu.com',
+      customerName: customerName || 'Walk-in Customer',
+      paymentMethod: paymentMethod,
+      items: cart.map((i) => ({
+        id: i.id,
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.sellingPrice,
+        totalPrice: i.sellingPrice * i.quantity
+      })),
+      grandTotal: calculateTotal(),
+    };
+
+    setPendingSaleData(salePayload);
+    setShowPrintModal(true);
+  };
+
+  // Execute Sale Save & Optional 58mm Thermal Print
+  const handleFinalizeCheckout = async (shouldPrint: boolean) => {
+    if (!pendingSaleData) return;
+
     try {
       await addDoc(collection(db, 'sales'), {
-        cashierEmail: user?.email,
-        customerName: customerName || 'Walk-in Customer',
-        paymentMethod: paymentMethod,
-        items: cart.map((i) => ({
-          id: i.id,
-          name: i.name,
-          quantity: i.quantity,
-          unitPrice: i.sellingPrice,
-          totalPrice: i.sellingPrice * i.quantity
-        })),
-        grandTotal: calculateTotal(),
+        ...pendingSaleData,
         createdAt: serverTimestamp()
       });
 
-      setCheckoutSuccess('Transaction completed successfully!');
+      if (shouldPrint) {
+        trigger58mmReceiptPrint(pendingSaleData);
+      }
+
+      setCheckoutSuccess('Transaction completed and logged successfully!');
       setCart([]);
       setCustomerName('');
       setPaymentMethod('Cash');
+      setShowPrintModal(false);
+      setPendingSaleData(null);
       setTimeout(() => setCheckoutSuccess(''), 4000);
     } catch (err) {
       console.error('Error logging transaction:', err);
       alert('Failed to complete transaction. Please check connection/permissions.');
+      setShowPrintModal(false);
     }
   };
 
-  // Add Product Handler (Admin/Cashier)
+  // 58mm Thermal Receipt Printer Window Trigger
+  const trigger58mmReceiptPrint = (sale: any) => {
+    const printWindow = window.open('', '_blank', 'width=350,height=600');
+    if (!printWindow) {
+      alert('Popup blocked! Please allow popups to print receipts.');
+      return;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Receipt - Saint Agu Wholesale</title>
+          <style>
+            @page {
+              size: 58mm auto;
+              margin: 0;
+            }
+            body {
+              width: 58mm;
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 11px;
+              line-height: 1.2;
+              color: #000;
+              background: #fff;
+              margin: 0;
+              padding: 4px;
+            }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
+            .line { border-bottom: 1px dashed #000; margin: 4px 0; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { text-align: left; padding: 2px 0; font-size: 11px; }
+            .right { text-align: right; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <div class="center bold" style="font-size: 13px;">SAINT AGU PREMIUM BEER</div>
+          <div class="center" style="font-size: 10px;">WHOLESALE DISTRIBUTION</div>
+          <div class="center" style="font-size: 9px; margin-top: 2px;">Date: ${new Date().toLocaleString()}</div>
+          <div class="line"></div>
+          <div>Customer: ${sale.customerName}</div>
+          <div>Payment: ${sale.paymentMethod}</div>
+          <div>Cashier: ${sale.cashierEmail}</div>
+          <div class="line"></div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 45%;">Item</th>
+                <th style="width: 15%;" class="center">Qty</th>
+                <th style="width: 40%;" class="right">Amt (₦)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sale.items.map((item: any) => `
+                <tr>
+                  <td colspan="3">\${item.name}</td>
+                </tr>
+                <tr>
+                  <td></td>
+                  <td class="center">\${item.quantity}</td>
+                  <td class="right">\${item.totalPrice.toLocaleString()}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="line"></div>
+          <div style="font-size: 12px;" class="bold right">GRAND TOTAL: ₦${sale.grandTotal.toLocaleString()}</div>
+          <div class="line"></div>
+          <div class="center" style="margin-top: 6px; font-weight: bold;">THANK YOU FOR YOUR PATRONAGE!</div>
+          <div class="center" style="font-size: 9px; margin-top: 4px;">Goods sold in good condition are non-returnable.</div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
+  // Add Product Handler
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newPrice) return;
@@ -326,7 +430,7 @@ export default function App() {
     }
   };
 
-  // Add Customer Handler (Admin/Cashier)
+  // Add Customer Handler
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!custNameInput || !custPhoneInput) {
@@ -528,15 +632,33 @@ export default function App() {
 
             {/* Cart & Checkout Panel */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-slate-800 mb-4">Current Order / Cart</h2>
+              <div className="space-y-4">
+                <h2 className="text-lg font-bold text-slate-800">Current Order / Cart</h2>
+
+                {/* Customer / Buyer Name at the Top */}
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Customer / Buyer Name</label>
+                  <input
+                    type="text"
+                    list="customer-list"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Walk-in Customer or Select..."
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm text-slate-900 bg-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  />
+                  <datalist id="customer-list">
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.name}>{c.phone ? `${c.name} (${c.phone})` : c.name}</option>
+                    ))}
+                  </datalist>
+                </div>
 
                 {cart.length === 0 ? (
-                  <div className="text-center py-10 text-slate-400 text-sm">
+                  <div className="text-center py-6 text-slate-400 text-sm">
                     Cart is empty. Click "+ Add to Sale" on any drink.
                   </div>
                 ) : (
-                  <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+                  <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
                     {cart.map((item) => (
                       <div key={item.id} className="border-b border-slate-100 pb-3 flex flex-col gap-2">
                         <div className="flex justify-between items-start">
@@ -596,24 +718,6 @@ export default function App() {
 
               {/* Order Settings & Checkout */}
               <div className="border-t border-slate-200 pt-4 mt-4 space-y-3">
-                {/* Customer Dropdown or Manual Input */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Customer / Buyer Name</label>
-                  <input
-                    type="text"
-                    list="customer-list"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Walk-in Customer or Select..."
-                    className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm text-slate-900 bg-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-                  />
-                  <datalist id="customer-list">
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.name}>{c.phone ? `${c.name} (${c.phone})` : c.name}</option>
-                    ))}
-                  </datalist>
-                </div>
-
                 {/* Payment Method Selector */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Method</label>
@@ -643,7 +747,7 @@ export default function App() {
                 </div>
 
                 <button
-                  onClick={handleCheckout}
+                  onClick={handleInitiateCheckout}
                   disabled={cart.length === 0}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-xl transition shadow-md"
                 >
@@ -657,7 +761,6 @@ export default function App() {
         {/* TAB 2: PRODUCTS & STOCK MANAGEMENT */}
         {activeTab === 'inventory' && (
           <div className="space-y-6">
-            {/* Add New Product Form */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-bold text-slate-800 mb-4">Add New Product to Inventory</h2>
               <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -724,7 +827,6 @@ export default function App() {
               </form>
             </div>
 
-            {/* Inventory Table with Price Adjustment for Admin */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <div className="flex justify-between items-center mb-4">
                 <div>
@@ -809,7 +911,6 @@ export default function App() {
         {/* TAB 3: CUSTOMERS PAGE */}
         {activeTab === 'customers' && (
           <div className="space-y-6">
-            {/* Add Customer Form */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-bold text-slate-800 mb-4">Register New Customer</h2>
               <form onSubmit={handleAddCustomer} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -866,7 +967,6 @@ export default function App() {
               </form>
             </div>
 
-            {/* Customers List Table */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-bold text-slate-800 mb-2">Registered Wholesale Customers</h2>
               <p className="text-xs text-slate-500 mb-4">Total Customers: {customers.length}</p>
@@ -908,7 +1008,6 @@ export default function App() {
         {/* TAB 4: SALES REPORTS PAGE */}
         {activeTab === 'reports' && (
           <div className="space-y-6">
-            {/* Sales Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <p className="text-xs font-semibold text-slate-500 uppercase">Total Revenue</p>
@@ -930,7 +1029,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Sales Table Log */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h2 className="text-lg font-bold text-slate-800 mb-2">Detailed Sales Log</h2>
               <p className="text-xs text-slate-500 mb-4">Complete transaction records including date, items, quantities, and payment methods.</p>
@@ -1005,6 +1103,38 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* PRINT RECEIPT CONFIRMATION MODAL (58mm Thermal Printer) */}
+      {showPrintModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm text-center">
+            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 font-bold text-xl">
+              🖨️
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-1">Print Receipt?</h3>
+            <p className="text-sm text-slate-600 mb-6">
+              Are you sure that you want to print this receipt? (Printer size: 58mm)
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => handleFinalizeCheckout(false)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition text-sm"
+              >
+                No (Cancel)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleFinalizeCheckout(true)}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition text-sm shadow-md"
+              >
+                Yes (Print)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
