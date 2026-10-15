@@ -308,10 +308,27 @@ export default function App() {
     };
 
     try {
-      await addDoc(collection(db, 'sales'), {
+      const batch = writeBatch(db);
+
+      // 1. Create a reference for the new sale document
+      const newSaleRef = doc(collection(db, 'sales'));
+      batch.set(newSaleRef, {
         ...saleRecord,
         createdAt: serverTimestamp()
       });
+
+      // 2. Loop through cart items and deduct from product stock
+      for (const item of cart) {
+        const productRef = doc(db, 'products', item.id);
+        const currentProduct = products.find((p) => p.id === item.id);
+        const currentStock = currentProduct ? currentProduct.stock : 0;
+        const newStock = Math.max(0, currentStock - item.quantity);
+
+        batch.update(productRef, { stock: newStock });
+      }
+
+      // Commit all changes atomically
+      await batch.commit();
 
       setCompletedSale(saleRecord);
       setCart([]);
