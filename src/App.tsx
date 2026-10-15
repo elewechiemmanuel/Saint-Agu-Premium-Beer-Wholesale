@@ -252,8 +252,16 @@ export default function App() {
 
   const addToCart = (product: Product) => {
     if (product.stock <= 0) return; // Prevent adding out of stock items
+    
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
+      const currentQtyInCart = existing ? existing.quantity : 0;
+
+      if (currentQtyInCart + 1 > product.stock) {
+        alert(`Cannot add more "${product.name}". Only ${product.stock} units available in stock.`);
+        return prev;
+      }
+
       if (existing) {
         return prev.map((item) =>
           item.id === product.id
@@ -267,6 +275,18 @@ export default function App() {
 
   const handleQuantityChange = (id: string, value: string) => {
     const parsedQty = parseFloat(value);
+    const product = products.find((p) => p.id === id);
+
+    if (product && parsedQty > product.stock) {
+      alert(`Cannot set quantity to ${parsedQty}. Only ${product.stock} units of "${product.name}" are in stock.`);
+      setCart((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, quantity: product.stock } : item
+        )
+      );
+      return;
+    }
+
     setCart((prev) =>
       prev.map((item) =>
         item.id === id
@@ -287,6 +307,19 @@ export default function App() {
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
+
+    // Check all items against live stock before proceeding
+    for (const item of cart) {
+      const liveProduct = products.find((p) => p.id === item.id);
+      if (!liveProduct || item.quantity > liveProduct.stock) {
+        alert(
+          `Insufficient stock for "${item.name}". Requested: ${item.quantity}, Available: ${
+            liveProduct ? liveProduct.stock : 0
+          }`
+        );
+        return;
+      }
+    }
 
     const receiptNum = `RCPT-${Math.floor(100000 + Math.random() * 900000)}`;
     const now = new Date();
