@@ -251,7 +251,7 @@ export default function App() {
   };
 
   const addToCart = (product: Product) => {
-    if (product.stock <= 0) return; // Prevent adding out of stock items
+    if (product.stock <= 0) return;
     
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
@@ -274,24 +274,31 @@ export default function App() {
   };
 
   const handleQuantityChange = (id: string, value: string) => {
-    const parsedQty = parseFloat(value);
-    const product = products.find((p) => p.id === id);
-
-    if (product && parsedQty > product.stock) {
-      alert(`Cannot set quantity to ${parsedQty}. Only ${product.stock} units of "${product.name}" are in stock.`);
+    if (value === '') {
       setCart((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, quantity: product.stock } : item
-        )
+        prev.map((item) => (item.id === id ? { ...item, quantity: 0 } : item))
       );
       return;
     }
 
+    const parsedQty = parseFloat(value);
+    const product = products.find((p) => p.id === id);
+
+    if (!product) return;
+
+    if (parsedQty > product.stock) {
+      alert(`Cannot set quantity to ${parsedQty}. Only ${product.stock} units of "${product.name}" are in stock.`);
+      setCart((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, quantity: product.stock } : item))
+      );
+      return;
+    }
+
+    if (parsedQty < 0) return;
+
     setCart((prev) =>
       prev.map((item) =>
-        item.id === id
-          ? { ...item, quantity: isNaN(parsedQty) ? 0 : parsedQty }
-          : item
+        item.id === id ? { ...item, quantity: parsedQty } : item
       )
     );
   };
@@ -308,7 +315,6 @@ export default function App() {
     e.preventDefault();
     if (cart.length === 0) return;
 
-    // Check all items against live stock before proceeding
     for (const item of cart) {
       const liveProduct = products.find((p) => p.id === item.id);
       if (!liveProduct || item.quantity > liveProduct.stock) {
@@ -446,6 +452,98 @@ export default function App() {
     printWindow.document.write(html);
     printWindow.document.close();
     setCompletedSale(null);
+  };
+
+  // Export Reports to Excel (CSV format)
+  const exportToExcel = () => {
+    if (sales.length === 0) {
+      alert('No sales data available to export.');
+      return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,Receipt Number,Date,Customer,Payment Method,Cashier,Grand Total\n";
+    sales.forEach((s) => {
+      const row = [
+        s.receiptNumber || 'N/A',
+        `"${s.formattedDate || 'N/A'}"`,
+        `"${s.customerName || 'Walk-in'}"`,
+        s.paymentMethod || 'Cash',
+        `"${s.cashierEmail || 'Admin'}"`,
+        s.grandTotal || 0
+      ].join(",");
+      csvContent += row + "\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Saint_Agu_Sales_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Export Reports to PDF (Print Window)
+  const exportToPDF = () => {
+    if (sales.length === 0) {
+      alert('No sales data available to export.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=800,height=700');
+    if (!printWindow) return;
+
+    const totalRevenue = sales.reduce((sum, s) => sum + (s.grandTotal || 0), 0);
+
+    const rows = sales.map((s) => `
+      <tr>
+        <td>${s.receiptNumber || 'N/A'}</td>
+        <td>${s.formattedDate || 'N/A'}</td>
+        <td>${s.customerName || 'Walk-in'}</td>
+        <td>${s.paymentMethod || 'Cash'}</td>
+        <td>₦${(s.grandTotal || 0).toLocaleString()}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Sales Report - Saint Agu Wholesale</title>
+          <style>
+            body { font-family: Arial, sans-serif; font-size: 12px; color: #333; padding: 20px; }
+            h2 { text-align: center; color: #1e293b; margin-bottom: 5px; }
+            p { text-align: center; color: #64748b; margin-top: 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+            th { background-color: #f1f5f9; color: #334155; font-weight: bold; }
+            .total { margin-top: 20px; text-align: right; font-size: 14px; font-weight: bold; }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          <h2>SAINT AGU PREMIUM BEER WHOLESALE</h2>
+          <p>Sales Report Summary - Generated on ${new Date().toLocaleDateString()}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Receipt #</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Payment Method</th>
+                <th>Grand Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+          <div class="total">Total Revenue: ₦${totalRevenue.toLocaleString()}</div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -755,7 +853,7 @@ export default function App() {
                         <div className="flex justify-between items-start">
                           <div>
                             <p className="font-semibold text-slate-800 text-sm">{item.name}</p>
-                            <p className="text-xs text-slate-400">₦{item.sellingPrice.toLocaleString()} per unit</p>
+                            <p className="text-xs text-slate-400">₦{item.sellingPrice.toLocaleString()} per unit (Stock: {item.stock})</p>
                           </div>
                           <button
                             onClick={() => removeFromCart(item.id)}
@@ -772,6 +870,7 @@ export default function App() {
                               type="number"
                               step="any"
                               min="0.01"
+                              max={item.stock}
                               value={item.quantity === 0 ? '' : item.quantity}
                               onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                               placeholder="0.5"
@@ -1141,24 +1240,41 @@ export default function App() {
         {/* REPORTS TAB */}
         {activeTab === 'reports' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <p className="text-xs font-semibold text-slate-500 uppercase">Total Revenue</p>
-                <p className="text-2xl font-black text-emerald-600 mt-1">
-                  ₦{sales.reduce((sum, s) => sum + (s.grandTotal || 0), 0).toLocaleString()}
-                </p>
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase">Total Revenue</p>
+                  <p className="text-2xl font-black text-emerald-600 mt-1">
+                    ₦{sales.reduce((sum, s) => sum + (s.grandTotal || 0), 0).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase">Total Transactions</p>
+                  <p className="text-2xl font-black text-blue-600 mt-1">{sales.length}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase">Average Order Value</p>
+                  <p className="text-2xl font-black text-purple-600 mt-1">
+                    ₦{sales.length > 0 
+                      ? Math.round(sales.reduce((sum, s) => sum + (s.grandTotal || 0), 0) / sales.length).toLocaleString() 
+                      : 0}
+                  </p>
+                </div>
               </div>
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <p className="text-xs font-semibold text-slate-500 uppercase">Total Transactions</p>
-                <p className="text-2xl font-black text-blue-600 mt-1">{sales.length}</p>
-              </div>
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <p className="text-xs font-semibold text-slate-500 uppercase">Average Order Value</p>
-                <p className="text-2xl font-black text-purple-600 mt-1">
-                  ₦{sales.length > 0 
-                    ? Math.round(sales.reduce((sum, s) => sum + (s.grandTotal || 0), 0) / sales.length).toLocaleString() 
-                    : 0}
-                </p>
+
+              <div className="flex gap-2 w-full md:w-auto justify-end">
+                <button
+                  onClick={exportToExcel}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm flex items-center gap-1.5"
+                >
+                  📥 Download Excel
+                </button>
+                <button
+                  onClick={exportToPDF}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm flex items-center gap-1.5"
+                >
+                  📄 Download PDF
+                </button>
               </div>
             </div>
 
@@ -1323,7 +1439,6 @@ export default function App() {
 
             <div className="border-t border-slate-800 mb-4"></div>
 
-            {/* Print Confirmation Prompt */}
             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 text-center font-sans">
               <p className="text-xs font-bold text-slate-700 mb-2">Do you want to print this receipt?</p>
               <div className="flex gap-2 justify-center">
