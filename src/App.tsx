@@ -251,6 +251,7 @@ export default function App() {
   };
 
   const addToCart = (product: Product) => {
+    if (product.stock <= 0) return; // Prevent adding out of stock items
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
@@ -310,14 +311,12 @@ export default function App() {
     try {
       const batch = writeBatch(db);
 
-      // 1. Create a reference for the new sale document
       const newSaleRef = doc(collection(db, 'sales'));
       batch.set(newSaleRef, {
         ...saleRecord,
         createdAt: serverTimestamp()
       });
 
-      // 2. Loop through cart items and deduct from product stock
       for (const item of cart) {
         const productRef = doc(db, 'products', item.id);
         const currentProduct = products.find((p) => p.id === item.id);
@@ -327,16 +326,15 @@ export default function App() {
         batch.update(productRef, { stock: newStock });
       }
 
-      // Commit all changes atomically
       await batch.commit();
 
       setCompletedSale(saleRecord);
       setCart([]);
       setCustomerName('');
       setPaymentMethod('Cash');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error completing sale:', err);
-      alert('Failed to complete sale. Please check connection/permissions.');
+      alert('Failed to complete sale: ' + (err.message || 'Check Firestore rules permissions for stock updates.'));
     }
   };
 
@@ -642,39 +640,51 @@ export default function App() {
                     )}
                   </div>
                 ) : (
-                  products.map((product) => (
-                    <div 
-                      key={product.id}
-                      className="border border-slate-200 rounded-lg p-2.5 flex flex-col justify-between hover:border-blue-500 transition bg-slate-50/50"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-1 mb-1">
-                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
-                            {product.sku}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            {product.stock} left
-                          </span>
+                  products.map((product) => {
+                    const isOutOfStock = product.stock <= 0;
+                    return (
+                      <div 
+                        key={product.id}
+                        className={`border rounded-lg p-2.5 flex flex-col justify-between transition ${
+                          isOutOfStock 
+                            ? 'border-red-300 bg-red-50/40 opacity-80' 
+                            : 'border-slate-200 hover:border-blue-500 bg-slate-50/50'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                              {product.sku}
+                            </span>
+                            <span className={`text-[10px] font-medium ${isOutOfStock ? 'text-red-600 font-extrabold' : 'text-slate-400'}`}>
+                              {isOutOfStock ? 'Out of stock' : `${product.stock} left`}
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-slate-800 text-xs leading-snug line-clamp-2" title={product.name}>
+                            {product.name}
+                          </h3>
+                          <p className="text-[10px] text-slate-400 truncate mt-0.5">{product.brewery}</p>
                         </div>
-                        <h3 className="font-bold text-slate-800 text-xs leading-snug line-clamp-2" title={product.name}>
-                          {product.name}
-                        </h3>
-                        <p className="text-[10px] text-slate-400 truncate mt-0.5">{product.brewery}</p>
-                      </div>
 
-                      <div className="mt-2 pt-2 border-t border-slate-200/60 flex flex-col gap-1.5">
-                        <p className="text-xs font-extrabold text-slate-900">
-                          ₦{(product.sellingPrice || 0).toLocaleString()}
-                        </p>
-                        <button
-                          onClick={() => addToCart(product)}
-                          className="w-full bg-slate-900 hover:bg-blue-600 text-white text-[11px] font-medium py-1.5 rounded transition shadow-sm"
-                        >
-                          + Add
-                        </button>
+                        <div className="mt-2 pt-2 border-t border-slate-200/60 flex flex-col gap-1.5">
+                          <p className="text-xs font-extrabold text-slate-900">
+                            ₦{(product.sellingPrice || 0).toLocaleString()}
+                          </p>
+                          <button
+                            onClick={() => addToCart(product)}
+                            disabled={isOutOfStock}
+                            className={`w-full text-[11px] font-medium py-1.5 rounded transition shadow-sm ${
+                              isOutOfStock 
+                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                                : 'bg-slate-900 hover:bg-blue-600 text-white'
+                            }`}
+                          >
+                            {isOutOfStock ? 'Sold Out' : '+ Add'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -907,7 +917,7 @@ export default function App() {
                         <td className="py-3 px-4 text-slate-500">{prod.brewery}</td>
                         
                         {/* Editable Stock Column */}
-                        <td className="py-3 px-4 font-bold text-slate-700">
+                        <td className={`py-3 px-4 font-bold ${prod.stock <= 0 ? 'text-red-600' : 'text-slate-700'}`}>
                           {editingStockId === prod.id && userRole === 'admin' ? (
                             <div className="flex items-center gap-2">
                               <input
@@ -930,7 +940,7 @@ export default function App() {
                               </button>
                             </div>
                           ) : (
-                            `${prod.stock} Units`
+                            prod.stock <= 0 ? 'Out of stock' : `${prod.stock} Units`
                           )}
                         </td>
 
